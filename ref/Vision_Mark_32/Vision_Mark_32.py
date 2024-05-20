@@ -1,3 +1,7 @@
+#this code is not tested yet
+#run this on a jupyter notebook with sage installed
+
+
 from sage.all import *
 
 # The binmul function below is adapted from work by Vitalik Buterin
