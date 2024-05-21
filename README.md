@@ -1,6 +1,16 @@
 # open-binius
 This repo contains building blocks for accelerating ZK proofs over binary fields.
 
+## Binary Tower Field Arithmetic
+We are implementing primitives for binary tower field arithmetic on FPGA.
+
+Work-in-progress results:
+
+|               | LUTs | Freq (MHz) |
+|---------------|------|------------|
+| 32b tower mul | 502  | 880MHz     |
+| 32b tower inv | 785  | 880MHz     |
+
 ## Hash Functions
 A demo kernel is included with each hash function that conforms to the following API:
 
