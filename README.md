@@ -22,13 +22,13 @@ Work-in-progress results:
 
 |               | LUTs | Freq (MHz) | 
 |---------------|------|------------|
-| 32b tower mul (this code) | **502** | **880MHz**     |
-| 32b tower mul (vm-32 paper) | 521  | 378MHz     |
+| 32b tower MUL (this code) | **502** | **880MHz**     |
+| 32b tower MUL ([vm-32 paper](https://eprint.iacr.org/archive/2024/633/20240501:125118)) | 521  | 378MHz     |
 
 |               | LUTs | Freq (MHz) | 
 |---------------|------|------------|
-| 32b tower inv (this code) | **785**  | **880MHz**     |
-| 32b tower inv (vm-32 paper) | 821  | 280MHz     |
+| 32b tower INV (this code) | **785**  | **880MHz**     |
+| 32b tower INV ([vm-32 paper](https://eprint.iacr.org/archive/2024/633/20240501:125118)) | 821  | 280MHz     |
 
 ## Hash Functions
 A demo kernel is included with each hash function that conforms to the following API:
