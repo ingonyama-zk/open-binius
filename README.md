@@ -1,5 +1,19 @@
-# open-binius
-This repo contains building blocks for accelerating ZK proofs over binary fields. For background see [Vitalik blog](https://vitalik.eth.limo/general/2024/04/29/binius.html) on highly efficient proofs over binary fields or our slides.
+# Open-Binius
+<div align="center">This repo contains open-source hardware IPs for accelerating ZK proofs over binary fields.</div>
+<div align="center">Open-Binius is a community effort led by Ingonyama.</div>
+
+
+
+<p align="center">
+  <img alt="obvb" width="600" height="300" src="https://github.com/ingonyama-zk/open-binius/assets/2446179/442d77cf-a5b6-4df0-9aea-649edb11c77a"/>
+</p>
+<p align="center">
+
+<div align="center">credit: Vitalik Buterin</div>
+
+
+# Background 
+For background see [Vitalik blog](https://vitalik.eth.limo/general/2024/04/29/binius.html) on highly efficient proofs over binary fields or our slides.
 
 ## Binary Tower Field Arithmetic
 We are implementing primitives for binary tower field arithmetic on FPGA.
