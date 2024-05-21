@@ -12,7 +12,7 @@
 <div align="center">credit: Vitalik Buterin</div>
 
 
-# Background 
+## Background 
 For background see [Vitalik blog](https://vitalik.eth.limo/general/2024/04/29/binius.html) on highly efficient proofs over binary fields or our slides.
 
 ## Binary Tower Field Arithmetic
