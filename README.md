@@ -1,6 +1,9 @@
 # Open-Binius
-<div align="center">This repo contains open-source hardware IPs for accelerating ZK proofs over binary fields.</div>
-<div align="center">Open-Binius is a community effort led by Ingonyama.</div>
+This repo contains open-source hardware IPs for accelerating ZK proofs over binary fields.
+
+Binius is a proof system developed by Irreducible. For more information, visit [binius.xyz](binius.xyz). 
+
+Open-Binius is a community effort led by Ingonyama. 
 
 
 
