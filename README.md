@@ -16,7 +16,7 @@ Open-Binius is a community effort led by Ingonyama.
 
 
 ## Background 
-For background see [Vitalik blog](https://vitalik.eth.limo/general/2024/04/29/binius.html) on highly efficient proofs over binary fields or our [slides](https://github.com/ingonyama-zk/open-binius/blob/main/Binius%20May2024%20v2.pdf).
+For background see [Vitalik blog](https://vitalik.eth.limo/general/2024/04/29/binius.html) on highly efficient proofs over binary fields or our [slides](https://github.com/ingonyama-zk/open-binius/blob/main/Binius%20May2024%20v3.pdf).
 
 ## Binary Tower Field Arithmetic
 We are implementing primitives for binary tower field arithmetic on FPGA.
