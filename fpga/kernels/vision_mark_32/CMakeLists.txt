@@ -9,5 +9,5 @@ include_directories(include/)
 add_executable(
         test_vision_mark_32
         src/vision_mark_32.cpp
-        test/test_vision_mark_32.cpp
+        test/test.cpp
 )
