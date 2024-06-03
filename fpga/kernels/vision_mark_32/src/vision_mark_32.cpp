@@ -1,3 +1,4 @@
+#include <hls_vector.h>
 #include "vision_mark_32.h"
 #include "binary_tower.h"
 
@@ -111,10 +112,83 @@ static const ap_uint<32> B_INV_LINEAR[32] = {
 
 static const ap_uint<32> B_INV_CONST = 0x9fa712f2;
 
+ap_uint<32> b_mul_sc(ap_uint<32> a, ap_uint<8> b) {
+    ap_uint<8> a0 = a;
+    ap_uint<24> a1 = a >> 24;
+    return (a1, binary_tower::b_mul(a0, b));
+}
+
+hls::vector<ap_uint<32>, 8> ifft_8(hls::vector<ap_uint<32>, 8> x, int coset) {
+    const ap_uint<32> twiddles[3][7] = {
+            {0x00, 0x00, 0x0d, 0x00, 0x02, 0x04, 0x06},
+            {0x02, 0x0f, 0x02, 0x08, 0x0a, 0x0c, 0x0e},
+            {0x64, 0x51, 0x5c, 0x10, 0x12, 0x14, 0x16}
+    };
+    x[1] ^= x[0];
+    x[0] ^= binary_tower::b_mul(x[1], twiddles[coset][3]);
+    x[3] ^= x[2];
+    x[2] ^= binary_tower::b_mul(x[3], twiddles[coset][4]);
+    x[5] ^= x[4];
+    x[4] ^= binary_tower::b_mul(x[5], twiddles[coset][5]);
+    x[7] ^= x[6];
+    x[6] ^= binary_tower::b_mul(x[7], twiddles[coset][6]);
+    x[2] ^= x[0];
+    x[0] ^= binary_tower::b_mul(x[2], twiddles[coset][1]);
+    x[3] ^= x[1];
+    x[1] ^= binary_tower::b_mul(x[3], twiddles[coset][1]);
+    x[6] ^= x[4];
+    x[4] ^= binary_tower::b_mul(x[6], twiddles[coset][2]);
+    x[7] ^= x[5];
+    x[5] ^= binary_tower::b_mul(x[7], twiddles[coset][2]);
+    x[4] ^= x[0];
+    x[0] ^= binary_tower::b_mul(x[4], twiddles[coset][0]);
+    x[5] ^= x[1];
+    x[1] ^= binary_tower::b_mul(x[5], twiddles[coset][0]);
+    x[6] ^= x[2];
+    x[2] ^= binary_tower::b_mul(x[6], twiddles[coset][0]);
+    x[7] ^= x[3];
+    x[3] ^= binary_tower::b_mul(x[7], twiddles[coset][0]);
+    return x;
+}
+
+hls::vector<ap_uint<32>, 8> fft_8(hls::vector<ap_uint<32>, 8> x, int coset) {
+    const ap_uint<32> twiddles[3][7] = {
+            {0x66, 0x5e, 0x53, 0x18, 0x1a, 0x1c, 0x1e},
+            {0xb8, 0xe3, 0xee, 0x20, 0x22, 0x24, 0x26},
+            {0xba, 0xec, 0xe1, 0x28, 0x2a, 0x2c, 0x2e}
+    };
+    x[0] ^= binary_tower::b_mul(x[4], twiddles[coset][0]);
+    x[4] ^= x[0];
+    x[1] ^= binary_tower::b_mul(x[5], twiddles[coset][0]);
+    x[5] ^= x[1];
+    x[2] ^= binary_tower::b_mul(x[6], twiddles[coset][0]);
+    x[6] ^= x[2];
+    x[3] ^= binary_tower::b_mul(x[7], twiddles[coset][0]);
+    x[7] ^= x[3];
+    x[0] ^= binary_tower::b_mul(x[2], twiddles[coset][1]);
+    x[2] ^= x[0];
+    x[1] ^= binary_tower::b_mul(x[3], twiddles[coset][1]);
+    x[3] ^= x[1];
+    x[4] ^= binary_tower::b_mul(x[6], twiddles[coset][2]);
+    x[6] ^= x[4];
+    x[5] ^= binary_tower::b_mul(x[7], twiddles[coset][2]);
+    x[7] ^= x[5];
+    x[0] ^= binary_tower::b_mul(x[1], twiddles[coset][3]);
+    x[1] ^= x[0];
+    x[2] ^= binary_tower::b_mul(x[3], twiddles[coset][4]);
+    x[3] ^= x[2];
+    x[4] ^= binary_tower::b_mul(x[5], twiddles[coset][5]);
+    x[5] ^= x[4];
+    x[6] ^= binary_tower::b_mul(x[7], twiddles[coset][6]);
+    x[7] ^= x[6];
+    return x;
+}
+
 template<bool inv>
 static ap_uint<32> permute(ap_uint<32> x) {
 #pragma HLS INLINE off
 #pragma HLS INLINE recursive
+#pragma HLS PIPELINE II=1
     x = binary_tower::b_inv(x);
     if constexpr (inv) {
         ap_uint<32> res = 0;
@@ -143,8 +217,51 @@ static state_t permute(state_t state) {
     return state;
 }
 
-static state_t mul_mds(state_t state) {
-    // TODO:
+static state_t mds(state_t state) {
+#pragma HLS INLINE off
+#pragma HLS INLINE recursive
+#pragma HLS PIPELINE II=1
+    const ap_uint<32> TOP_TWIDDLES[3] = {0x07, 0x6a, 0x02};
+    hls::vector<ap_uint<32>, 8> a = {
+            state.v[0], state.v[1], state.v[2], state.v[3], state.v[4], state.v[5], state.v[6], state.v[7]
+    };
+    hls::vector<ap_uint<32>, 8> b = {
+            state.v[8], state.v[9], state.v[10], state.v[11], state.v[12], state.v[13], state.v[14], state.v[15]
+    };
+    hls::vector<ap_uint<32>, 8> c = {
+            state.v[16], state.v[17], state.v[18], state.v[19], state.v[20], state.v[21], state.v[22], state.v[23]
+    };
+    a = ifft_8(a, 0);
+    b = ifft_8(b, 1);
+    c = ifft_8(c, 2);
+    b ^= a;
+    hls::vector<ap_uint<32>, 8> x;
+    for (int i = 0; i < 8; i++) {
+        x[i] = binary_tower::b_mul(TOP_TWIDDLES[0], b[i]);
+    }
+    c ^= x ^ a;
+    hls::vector<ap_uint<32>, 8> y;
+    for (int i = 0; i < 8; i++) {
+        y[i] = binary_tower::b_mul(TOP_TWIDDLES[1], b[i]);
+    }
+    hls::vector<ap_uint<32>, 8> z;
+    for (int i = 0; i < 8; i++) {
+        z[i] = binary_tower::b_mul(TOP_TWIDDLES[2], c[i]);
+    }
+    hls::vector<ap_uint<32>, 8> tmp_0 = a;
+    hls::vector<ap_uint<32>, 8> tmp_1 = b;
+    a ^= x ^ b ^ c;
+    b = tmp_0 ^ y ^ z;
+    c = b ^ tmp_1;
+    a = fft_8(a, 0);
+    b = fft_8(b, 1);
+    c = fft_8(c, 2);
+    for (int i = 0; i < 8; i++) {
+        state.v[i] = a[i];
+        state.v[8 + i] = b[i];
+        state.v[16 + i] = c[i];
+    }
+
     return state;
 }
 
@@ -166,10 +283,10 @@ static state_t add_rc(state_t state) {
 template<int R>
 state_t round(state_t state) {
     state = permute<true>(state);
-    state = mul_mds(state);
+    state = mds(state);
     state = add_rc<R * 2>(state);
     state = permute<false>(state);
-    state = mul_mds(state);
+    state = mds(state);
     state = add_rc<R * 2 + 1>(state);
     return state;
 }
@@ -178,13 +295,13 @@ state_t vision_mark_32::update(vision_mark_32::state_t state) {
 #pragma HLS PIPELINE II=1
     state = add_rc_init(state);
     state = round<0>(state);
-    state = round<1>(state);
-    state = round<2>(state);
-    state = round<3>(state);
-    state = round<4>(state);
-    state = round<5>(state);
-    state = round<6>(state);
-    state = round<7>(state);
+//    state = round<1>(state);
+//    state = round<2>(state);
+//    state = round<3>(state);
+//    state = round<4>(state);
+//    state = round<5>(state);
+//    state = round<6>(state);
+//    state = round<7>(state);
     return state;
 }
 
