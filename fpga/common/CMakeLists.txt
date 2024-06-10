@@ -7,5 +7,6 @@ include_directories(include/)
 
 add_executable(
         test_binary_tower
+        src/binary_tower.cpp
         test/test_binary_tower.cpp
 )

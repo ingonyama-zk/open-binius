@@ -1,16 +1,19 @@
-DEVICE_PART ?= xcu250-figd2104-2l-e
-
-csynth:
-	v++ -c --mode hls --part $(DEVICE_PART) --config ./hls_config.cfg --work_dir ./work
+PART=xcu250-figd2104-2l-e
+KERNEL=dummy
 
 csim:
-	vitis-run --mode hls --csim --config ./hls_config.cfg --work_dir ./work
+	mkdir -p work/$(KERNEL)
+	cd work/$(KERNEL); vitis-run --csim --config ../../$(KERNEL).cfg  --work_dir .
+
+csynth:
+	mkdir -p work/$(KERNEL)
+	cd work/$(KERNEL); v++ -c --mode hls --part $(PART) --config ../../$(KERNEL).cfg
 
 cosim:
-	vitis-run --mode hls --cosim --config ./hls_config.cfg --work_dir ./work
+	cd work/$(KERNEL); vitis-run --cosim --config ../../$(KERNEL).cfg --work_dir .
 
 impl:
-	vitis-run --mode hls --impl --config ./hls_config.cfg --work_dir ./work
+	cd work/$(KERNEL); vitis-run --impl --config ../../$(KERNEL).cfg --work_dir ./$(KERNEL)
 
 clean:
 	rm -rf ./work

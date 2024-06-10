@@ -1,16 +1,37 @@
-#include <hls_vector.h>
 #include "vision_mark_32.h"
 #include "binary_tower.h"
 
-using state_t = vision_mark_32::state_t;
+struct state_t {
+    binary_tower_t<32> v[24]{};
 
-static const ap_uint<32> RC_INIT[24] = {
+    state_t(ap_uint<768> x) {
+        for (int i = 0; i < 24; i++) {
+            v[i] = binary_tower_t<32>(x);
+            x >>= 32;
+        }
+    }
+
+    ap_uint<768> to_packed() {
+        ap_uint<768> x = 0;
+        for (int i = 0; i < 24; i++) {
+            x |= v[23 - i].raw;
+            x <<= 32;
+        }
+        return x;
+    }
+};
+
+struct narrow_state_t {
+    binary_tower_t<32> v[8];
+};
+
+static constexpr uint32_t RC_INIT[24] = {
         0x545e66a7, 0x073fdd58, 0x84362677, 0x95fe8565, 0x06269cd8, 0x9c17909e, 0xf1f0adee, 0x2694c698,
         0x94b2788f, 0x5eac14ad, 0x21677a78, 0x5755730b, 0x37cef9cf, 0x2fb31ffe, 0xfc0082ec, 0x609c12f0,
         0x102769ee, 0x4732860d, 0xf97935e0, 0x36e77c02, 0xba9e70df, 0x67b701d7, 0x829d77a4, 0xf6ec454d,
 };
 
-static const ap_uint<32> RC[16][24] = {
+static constexpr uint32_t RC[16][24] = {
         {
                 0x73fa03e1, 0x2551a651, 0x0541031f, 0xec1d59dc, 0x780f0b43, 0x04843f97, 0xd379e20b, 0xbe4d1f58,
                 0xe4c2f8bb, 0xf29aee17, 0x228e51f2, 0x840ee72b, 0x0cb3b70e, 0xbacc914a, 0x490bfa7e, 0xc2c3018e,
@@ -112,202 +133,205 @@ static const ap_uint<32> B_INV_LINEAR[32] = {
 
 static const ap_uint<32> B_INV_CONST = 0x9fa712f2;
 
-ap_uint<32> b_mul_sc(ap_uint<32> a, ap_uint<8> b) {
-    ap_uint<8> a0 = a;
-    ap_uint<24> a1 = a >> 24;
-    return (a1, binary_tower::b_mul(a0, b));
-}
-
-hls::vector<ap_uint<32>, 8> ifft_8(hls::vector<ap_uint<32>, 8> x, int coset) {
-    const ap_uint<32> twiddles[3][7] = {
-            {0x00, 0x00, 0x0d, 0x00, 0x02, 0x04, 0x06},
-            {0x02, 0x0f, 0x02, 0x08, 0x0a, 0x0c, 0x0e},
-            {0x64, 0x51, 0x5c, 0x10, 0x12, 0x14, 0x16}
-    };
-    x[1] ^= x[0];
-    x[0] ^= binary_tower::b_mul(x[1], twiddles[coset][3]);
-    x[3] ^= x[2];
-    x[2] ^= binary_tower::b_mul(x[3], twiddles[coset][4]);
-    x[5] ^= x[4];
-    x[4] ^= binary_tower::b_mul(x[5], twiddles[coset][5]);
-    x[7] ^= x[6];
-    x[6] ^= binary_tower::b_mul(x[7], twiddles[coset][6]);
-    x[2] ^= x[0];
-    x[0] ^= binary_tower::b_mul(x[2], twiddles[coset][1]);
-    x[3] ^= x[1];
-    x[1] ^= binary_tower::b_mul(x[3], twiddles[coset][1]);
-    x[6] ^= x[4];
-    x[4] ^= binary_tower::b_mul(x[6], twiddles[coset][2]);
-    x[7] ^= x[5];
-    x[5] ^= binary_tower::b_mul(x[7], twiddles[coset][2]);
-    x[4] ^= x[0];
-    x[0] ^= binary_tower::b_mul(x[4], twiddles[coset][0]);
-    x[5] ^= x[1];
-    x[1] ^= binary_tower::b_mul(x[5], twiddles[coset][0]);
-    x[6] ^= x[2];
-    x[2] ^= binary_tower::b_mul(x[6], twiddles[coset][0]);
-    x[7] ^= x[3];
-    x[3] ^= binary_tower::b_mul(x[7], twiddles[coset][0]);
-    return x;
-}
-
-hls::vector<ap_uint<32>, 8> fft_8(hls::vector<ap_uint<32>, 8> x, int coset) {
-    const ap_uint<32> twiddles[3][7] = {
-            {0x66, 0x5e, 0x53, 0x18, 0x1a, 0x1c, 0x1e},
-            {0xb8, 0xe3, 0xee, 0x20, 0x22, 0x24, 0x26},
-            {0xba, 0xec, 0xe1, 0x28, 0x2a, 0x2c, 0x2e}
-    };
-    x[0] ^= binary_tower::b_mul(x[4], twiddles[coset][0]);
-    x[4] ^= x[0];
-    x[1] ^= binary_tower::b_mul(x[5], twiddles[coset][0]);
-    x[5] ^= x[1];
-    x[2] ^= binary_tower::b_mul(x[6], twiddles[coset][0]);
-    x[6] ^= x[2];
-    x[3] ^= binary_tower::b_mul(x[7], twiddles[coset][0]);
-    x[7] ^= x[3];
-    x[0] ^= binary_tower::b_mul(x[2], twiddles[coset][1]);
-    x[2] ^= x[0];
-    x[1] ^= binary_tower::b_mul(x[3], twiddles[coset][1]);
-    x[3] ^= x[1];
-    x[4] ^= binary_tower::b_mul(x[6], twiddles[coset][2]);
-    x[6] ^= x[4];
-    x[5] ^= binary_tower::b_mul(x[7], twiddles[coset][2]);
-    x[7] ^= x[5];
-    x[0] ^= binary_tower::b_mul(x[1], twiddles[coset][3]);
-    x[1] ^= x[0];
-    x[2] ^= binary_tower::b_mul(x[3], twiddles[coset][4]);
-    x[3] ^= x[2];
-    x[4] ^= binary_tower::b_mul(x[5], twiddles[coset][5]);
-    x[5] ^= x[4];
-    x[6] ^= binary_tower::b_mul(x[7], twiddles[coset][6]);
-    x[7] ^= x[6];
-    return x;
-}
-
 template<bool inv>
-static ap_uint<32> permute(ap_uint<32> x) {
+static binary_tower_t<32> permute_lane(binary_tower_t<32> x) {
 #pragma HLS INLINE off
-#pragma HLS INLINE recursive
 #pragma HLS PIPELINE II=1
-    x = binary_tower::b_inv(x);
+    ap_uint<32> y = x.inv().raw;
     if constexpr (inv) {
         ap_uint<32> res = 0;
         for (int i = 0; i < 32; i++) {
             for (int j = 0; j < 32; j++) {
-                res[i] ^= x[j] & B_INV_LINEAR[j][i];
+                res[i] ^= y[j] & B_INV_LINEAR[j][i];
             }
         }
-        return res ^ B_INV_CONST;
+        return binary_tower_t<32>((res ^ B_INV_CONST));
     } else {
         ap_uint<32> res = 0;
         for (int i = 0; i < 32; i++) {
             for (int j = 0; j < 32; j++) {
-                res[i] ^= x[j] & B_LINEAR[j][i];
+                res[i] ^= y[j] & B_LINEAR[j][i];
             }
         }
-        return res ^ B_CONST;
+        return binary_tower_t<32>((res ^ B_CONST));
     }
 }
 
 template<bool inv>
 static state_t permute(state_t state) {
     for (int i = 0; i < 24; i++) {
-        state.v[i] = permute<inv>(state.v[i]);
+        state.v[i] = permute_lane<inv>(state.v[i]);
     }
-    return state;
-}
-
-static state_t mds(state_t state) {
-#pragma HLS INLINE off
-#pragma HLS INLINE recursive
-#pragma HLS PIPELINE II=1
-    const ap_uint<32> TOP_TWIDDLES[3] = {0x07, 0x6a, 0x02};
-    hls::vector<ap_uint<32>, 8> a = {
-            state.v[0], state.v[1], state.v[2], state.v[3], state.v[4], state.v[5], state.v[6], state.v[7]
-    };
-    hls::vector<ap_uint<32>, 8> b = {
-            state.v[8], state.v[9], state.v[10], state.v[11], state.v[12], state.v[13], state.v[14], state.v[15]
-    };
-    hls::vector<ap_uint<32>, 8> c = {
-            state.v[16], state.v[17], state.v[18], state.v[19], state.v[20], state.v[21], state.v[22], state.v[23]
-    };
-    a = ifft_8(a, 0);
-    b = ifft_8(b, 1);
-    c = ifft_8(c, 2);
-    b ^= a;
-    hls::vector<ap_uint<32>, 8> x;
-    for (int i = 0; i < 8; i++) {
-        x[i] = binary_tower::b_mul(TOP_TWIDDLES[0], b[i]);
-    }
-    c ^= x ^ a;
-    hls::vector<ap_uint<32>, 8> y;
-    for (int i = 0; i < 8; i++) {
-        y[i] = binary_tower::b_mul(TOP_TWIDDLES[1], b[i]);
-    }
-    hls::vector<ap_uint<32>, 8> z;
-    for (int i = 0; i < 8; i++) {
-        z[i] = binary_tower::b_mul(TOP_TWIDDLES[2], c[i]);
-    }
-    hls::vector<ap_uint<32>, 8> tmp_0 = a;
-    hls::vector<ap_uint<32>, 8> tmp_1 = b;
-    a ^= x ^ b ^ c;
-    b = tmp_0 ^ y ^ z;
-    c = b ^ tmp_1;
-    a = fft_8(a, 0);
-    b = fft_8(b, 1);
-    c = fft_8(c, 2);
-    for (int i = 0; i < 8; i++) {
-        state.v[i] = a[i];
-        state.v[8 + i] = b[i];
-        state.v[16 + i] = c[i];
-    }
-
     return state;
 }
 
 static state_t add_rc_init(state_t state) {
     for (int i = 0; i < 24; i++) {
-        state.v[i] = binary_tower::b_add(state.v[i], RC_INIT[i]);
+        state.v[i] = state.v[i] + binary_tower_t<32>(RC_INIT[i]);
     }
     return state;
 }
 
-template<int R>
+template<int ROUND>
 static state_t add_rc(state_t state) {
     for (int i = 0; i < 24; i++) {
-        state.v[i] = binary_tower::b_add(state.v[i], RC[R][i]);
+        state.v[i] = state.v[i] + binary_tower_t<32>(RC[ROUND][i]);
     }
     return state;
 }
 
-template<int R>
+template<int coset>
+narrow_state_t ifft_8(narrow_state_t x) {
+    static constexpr uint32_t twiddles[3][7] = {
+            {0x00, 0x00, 0x0d, 0x00, 0x02, 0x04, 0x06},
+            {0x02, 0x0f, 0x02, 0x08, 0x0a, 0x0c, 0x0e},
+            {0x64, 0x51, 0x5c, 0x10, 0x12, 0x14, 0x16}
+    };
+    x.v[1] += x.v[0];
+    x.v[0] += x.v[1] * binary_tower_t<32>(twiddles[coset][3]);
+    x.v[3] += x.v[2];
+    x.v[2] += x.v[3] * binary_tower_t<32>(twiddles[coset][4]);
+    x.v[5] += x.v[4];
+    x.v[4] += x.v[5] * binary_tower_t<32>(twiddles[coset][5]);
+    x.v[7] += x.v[6];
+    x.v[6] += x.v[7] * binary_tower_t<32>(twiddles[coset][6]);
+    x.v[2] += x.v[0];
+    x.v[0] += x.v[2] * binary_tower_t<32>(twiddles[coset][1]);
+    x.v[3] += x.v[1];
+    x.v[1] += x.v[3] * binary_tower_t<32>(twiddles[coset][1]);
+    x.v[6] += x.v[4];
+    x.v[4] += x.v[6] * binary_tower_t<32>(twiddles[coset][2]);
+    x.v[7] += x.v[5];
+    x.v[5] += x.v[7] * binary_tower_t<32>(twiddles[coset][2]);
+    x.v[4] += x.v[0];
+    x.v[0] += x.v[4] * binary_tower_t<32>(twiddles[coset][0]);
+    x.v[5] += x.v[1];
+    x.v[1] += x.v[5] * binary_tower_t<32>(twiddles[coset][0]);
+    x.v[6] += x.v[2];
+    x.v[2] += x.v[6] * binary_tower_t<32>(twiddles[coset][0]);
+    x.v[7] += x.v[3];
+    x.v[3] += x.v[7] * binary_tower_t<32>(twiddles[coset][0]);
+    return x;
+}
+
+template<int coset>
+narrow_state_t fft_8(narrow_state_t x) {
+    static constexpr uint32_t twiddles[3][7] = {
+            {0x66, 0x5e, 0x53, 0x18, 0x1a, 0x1c, 0x1e},
+            {0xb8, 0xe3, 0xee, 0x20, 0x22, 0x24, 0x26},
+            {0xba, 0xec, 0xe1, 0x28, 0x2a, 0x2c, 0x2e}
+    };
+    x.v[0] += x.v[4] * binary_tower_t<32>(twiddles[coset][0]);
+    x.v[4] += x.v[0];
+    x.v[1] += x.v[5] * binary_tower_t<32>(twiddles[coset][0]);
+    x.v[5] += x.v[1];
+    x.v[2] += x.v[6] * binary_tower_t<32>(twiddles[coset][0]);
+    x.v[6] += x.v[2];
+    x.v[3] += x.v[7] * binary_tower_t<32>(twiddles[coset][0]);
+    x.v[7] += x.v[3];
+    x.v[0] += x.v[2] * binary_tower_t<32>(twiddles[coset][1]);
+    x.v[2] += x.v[0];
+    x.v[1] += x.v[3] * binary_tower_t<32>(twiddles[coset][1]);
+    x.v[3] += x.v[1];
+    x.v[4] += x.v[6] * binary_tower_t<32>(twiddles[coset][2]);
+    x.v[6] += x.v[4];
+    x.v[5] += x.v[7] * binary_tower_t<32>(twiddles[coset][2]);
+    x.v[7] += x.v[5];
+    x.v[0] += x.v[1] * binary_tower_t<32>(twiddles[coset][3]);
+    x.v[1] += x.v[0];
+    x.v[2] += x.v[3] * binary_tower_t<32>(twiddles[coset][4]);
+    x.v[3] += x.v[2];
+    x.v[4] += x.v[5] * binary_tower_t<32>(twiddles[coset][5]);
+    x.v[5] += x.v[4];
+    x.v[6] += x.v[7] * binary_tower_t<32>(twiddles[coset][6]);
+    x.v[7] += x.v[6];
+    return x;
+}
+
+static state_t mds(state_t state) {
+#pragma HLS INLINE off
+#pragma HLS PIPELINE II=1
+    static constexpr uint32_t TOP_TWIDDLES[3] = {0x07, 0x6a, 0x02};
+    narrow_state_t a;
+    narrow_state_t b;
+    narrow_state_t c;
+    for (int i = 0; i < 8; i++) {
+        a.v[i] = state.v[i];
+        b.v[i] = state.v[i + 8];
+        c.v[i] = state.v[i + 16];
+    }
+    a = ifft_8<0>(a);
+    b = ifft_8<1>(b);
+    c = ifft_8<2>(c);
+
+    narrow_state_t tmp_0 = a;
+    narrow_state_t tmp_1 = b;
+    narrow_state_t x;
+    narrow_state_t y;
+    narrow_state_t z;
+
+    for (int i = 0; i < 8; i++) {
+        x.v[i] = binary_tower_t<32>(TOP_TWIDDLES[0]) * b.v[i];
+        c.v[i] += x.v[i] + a.v[i];
+        y.v[i] = binary_tower_t<32>(TOP_TWIDDLES[1]) * b.v[i];
+        z.v[i] = binary_tower_t<32>(TOP_TWIDDLES[2]) * c.v[i];
+        a.v[i] += x.v[i] + b.v[i] + c.v[i];
+        b.v[i] = tmp_0.v[i] + y.v[i] + z.v[i];
+        c.v[i] = b.v[i] + tmp_1.v[i];
+    }
+
+    a = fft_8<0>(a);
+    b = fft_8<1>(b);
+    c = fft_8<2>(c);
+    for (int i = 0; i < 8; i++) {
+        state.v[i] = a.v[i];
+        state.v[8 + i] = b.v[i];
+        state.v[16 + i] = c.v[i];
+    }
+    return state;
+}
+
+template<int ROUND>
 state_t round(state_t state) {
+#pragma HLS INLINE off
+#pragma HLS PIPELINE II=1
     state = permute<true>(state);
     state = mds(state);
-    state = add_rc<R * 2>(state);
+    state = add_rc<2 * ROUND>(state);
     state = permute<false>(state);
     state = mds(state);
-    state = add_rc<R * 2 + 1>(state);
+    state = add_rc<2 * ROUND + 1>(state);
     return state;
 }
 
-state_t vision_mark_32::update(vision_mark_32::state_t state) {
-#pragma HLS PIPELINE II=1
+static state_t update(state_t state) {
     state = add_rc_init(state);
     state = round<0>(state);
-//    state = round<1>(state);
-//    state = round<2>(state);
-//    state = round<3>(state);
-//    state = round<4>(state);
-//    state = round<5>(state);
-//    state = round<6>(state);
-//    state = round<7>(state);
+    state = round<1>(state);
+    state = round<2>(state);
+    state = round<3>(state);
+    state = round<4>(state);
+    state = round<5>(state);
+    state = round<6>(state);
+    state = round<7>(state);
     return state;
 }
 
-ap_uint<768> dummy(ap_uint<768> x) {
+ap_uint<768> vision_mark_32(ap_uint<768> x) {
 #pragma HLS INTERFACE MODE=ap_ctrl_none port=return
 #pragma HLS PIPELINE II=1
-    vision_mark_32::state_t state(x);
-    return vision_mark_32::update(state).to_packed();
+    state_t state(x);
+    return update(state).to_packed();
 }
+
+//ap_uint<32> dummy(ap_uint<32> x, ap_uint<32> y) {
+//#pragma HLS INTERFACE MODE=ap_ctrl_none port=return
+//#pragma HLS PIPELINE II=1
+//    return binary_tower::b_mul(x, y);
+//}
+
+//ap_uint<32> derp(ap_uint<32> a) {
+//#pragma HLS INTERFACE MODE=ap_ctrl_none port=return
+//#pragma HLS PIPELINE II=1
+//    return binary_tower_32b_mul_alpha(a);
+//}
