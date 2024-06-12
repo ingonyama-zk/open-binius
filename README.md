@@ -45,8 +45,6 @@ The demo application demonstrates correctness, however it is intended for the us
 to integrate the internal building blocks in their own FPGA-based design
 (e.g. instantiate multiple cores).
 
-Currently only the groestl_256 hash function is available. More hash functions coming soon!
-
 ### Demo Application Stats
 Note that the demo applications are bottle-necked by PCIe or memory bandwidth.
 Power is measured as total card power.
@@ -55,13 +53,16 @@ Power is measured as total card power.
 |-------------|---------|------------|--------------------|-----------|
 | groestl_256 | 122K    | 300        | 12.8189            | 31        |
 
+vision_mark_32 demo application coming soon!
+
 ### Hash Core Stats
 Frequency achievable when instantiating the cores without data movers.
 Power is measured just for the hash core.
 
-|             | LUTs | Freq (MHz) | Throughput (GiB/s) | Power (W) |
-|-------------|------|------------|--------------------|-----------|
-| groestl_256 | 115K | 750        | 44.7               | 12        |
+|                | LUTs | Freq (MHz) | Throughput (GiB/s) | Power (W) |
+|----------------|------|------------|--------------------|-----------|
+| groestl_256    | 115K | 750        | 44.7               | 12        |
+| vision_mark_32 | 374K | 500        | 29.8               | 81        |
 
 ### Total Board Throughput
 Achievable throughput when instantiating as many cores as possible, ignoring
