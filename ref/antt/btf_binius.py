@@ -3,6 +3,15 @@ import copy
 import numpy as np
 
 
+# binius binary tower field class
+# assuming field vector-space basis is:
+# (1, x0, x1, x0x1, x2, x0x2, x1x2, x0x1x2, x3, ..., x0x1x2x3...xn)
+# then tower is constructed as:
+# F2
+# F4     :=   F2[x0] / (x0^2 + x0   + 1)
+# F16    :=   F4[x1] / (x1^2 + x0x1 + 1)
+# F256   :=  F16[x2] / (x2^2 + x1x2 + 1)
+# F65536 := F256[x3] / (x3^2 + x2x3 + 1)
 class btf():
     def __init__(self, val, nlvls=None):
         if nlvls is None:

@@ -2,6 +2,10 @@
 from btf_binius import *
 
 
+# additive ntt class
+# runs on top of a binary tower field (btf) class
+# import the desired btf class at top of this file
+# see chapter 3 of https://github.com/ingonyama-zk/papers/blob/main/ntt_201_book.pdf for more details
 class antt():
     def __init__(self, N):
         self.N = N
